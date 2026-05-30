@@ -401,6 +401,14 @@ async def custom_swagger_docs():
             status_code=500
         )
 
+
+
+@app.get("/test/{match_id}")
+async def test(match_id: str):
+
+
+@app.get("/", response_model=ScoreResponse)
+async def root(
 @app.get("/", response_model=ScoreResponse)
 async def root(
     score: Optional[str] = Query(
