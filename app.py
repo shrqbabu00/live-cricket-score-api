@@ -421,26 +421,26 @@ async def test(match_id: str):
     }
 
 
-@app.get("/", response_model=ScoreResponse)
-async def root(
-    score: Optional[str] = Query(
-        None,
-        min_length=4,
-        max_length=20
-    ),
-    text: bool = Query(False)
-):
+@app.get("/test/{match_id}")
+async def test(match_id: str):
+    url = f"https://www.cricbuzz.com/cricket-match-squads/{match_id}"
 
+    async with httpx.AsyncClient(
+        timeout=10.0,
+        follow_redirects=True
+    ) as client:
+        response = await client.get(
+            url,
+            headers=ScoreService.HEADERS
+        )
 
-@app.get("/", response_model=ScoreResponse)
-async def root(
-    score: Optional[str] = Query(
-        None,
-        min_length=4,
-        max_length=20
-    ),
-    text: bool = Query(False)
-):
+    return {
+        "contains_babar": "Babar Azam" in response.text,
+        "contains_rizwan": "Mohammad Rizwan" in response.text,
+        "html_length": len(response.text)
+    }
+
+    
     if score is None:
         return ScoreResponse(
             status="success",
