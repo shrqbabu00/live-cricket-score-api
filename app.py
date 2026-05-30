@@ -401,6 +401,48 @@ async def custom_swagger_docs():
             status_code=500
         )
 
+@app.get("/playing-xi")
+async def playing_xi(score: str):
+
+    url = f"https://www.cricbuzz.com/cricket-match-squads/{score}"
+
+    async with httpx.AsyncClient(
+        timeout=15.0,
+        follow_redirects=True
+    ) as client:
+        response = await client.get(
+            url,
+            headers=ScoreService.HEADERS
+        )
+
+    html_text = response.text
+
+    players = []
+
+    patterns = [
+        r'"name":"([^"]+)"',
+        r'"fullName":"([^"]+)"'
+    ]
+
+    for pattern in patterns:
+        matches = re.findall(pattern, html_text)
+
+        for player in matches:
+            if (
+                len(player) > 3 and
+                player not in players and
+                "Pakistan" not in player and
+                "Australia" not in player
+            ):
+                players.append(player)
+
+    return {
+        "match_id": score,
+        "total_players": len(players),
+        "players": players[:30]
+    }
+
+
 @app.get("/", response_model=ScoreResponse)
 async def root(
     score: Optional[str] = Query(
