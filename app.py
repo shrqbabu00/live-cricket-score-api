@@ -87,6 +87,28 @@ async def fetch_playing_xi(cls, match_id: str) -> PlayingXIResponse:
             teams=teams
         )
 
+    @app.get("/debug-xi")
+async def debug_xi(score: str):
+    url = f"https://www.cricbuzz.com/cricket-match-squads/{score}"
+
+    async with httpx.AsyncClient(
+        timeout=10,
+        follow_redirects=True
+    ) as client:
+        response = await client.get(
+            url,
+            headers=ScoreService.HEADERS
+        )
+
+    return {
+        "contains_playing_xi":
+            "Playing XI" in response.text,
+        "contains_babar":
+            "Babar Azam" in response.text,
+        "html_length":
+            len(response.text)
+    }
+
     except httpx.TimeoutException:
         raise APIError(408, REQUEST_TIMEOUT)
     except httpx.HTTPStatusError:
