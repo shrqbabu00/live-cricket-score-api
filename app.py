@@ -401,14 +401,37 @@ async def custom_swagger_docs():
             status_code=500
         )
 
-
-
 @app.get("/test/{match_id}")
 async def test(match_id: str):
+    url = f"https://www.cricbuzz.com/cricket-match-squads/{match_id}"
+
+    async with httpx.AsyncClient(
+        timeout=10.0,
+        follow_redirects=True
+    ) as client:
+        response = await client.get(
+            url,
+            headers=ScoreService.HEADERS
+        )
+
+    return {
+        "contains_babar": "Babar Azam" in response.text,
+        "contains_rizwan": "Mohammad Rizwan" in response.text,
+        "html_length": len(response.text)
+    }
 
 
 @app.get("/", response_model=ScoreResponse)
 async def root(
+    score: Optional[str] = Query(
+        None,
+        min_length=4,
+        max_length=20
+    ),
+    text: bool = Query(False)
+):
+
+
 @app.get("/", response_model=ScoreResponse)
 async def root(
     score: Optional[str] = Query(
