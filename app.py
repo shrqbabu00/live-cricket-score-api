@@ -13,32 +13,23 @@ from fastapi.responses import (
     PlainTextResponse,
     HTMLResponse,
 )
-from pydantic import BaseModel, field_validator, ValidationError
+from pydantic import BaseModel, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
-# ─────────────────────────────────────────────
-# Constants
-# ─────────────────────────────────────────────
-NOT_FOUND      = "score not found"
+NOT_FOUND = "score not found"
 REQUEST_TIMEOUT = "request timeout"
 INVALID_MATCH_ID = "invalid score id"
 
 
-# ─────────────────────────────────────────────
-# Custom Exception
-# ─────────────────────────────────────────────
 class APIError(Exception):
     def __init__(self, status_code: int, message: str):
         self.status_code = status_code
-        self.message     = message
+        self.message = message
 
 
-# ─────────────────────────────────────────────
-# Pydantic Models
-# ─────────────────────────────────────────────
 class Batsman(BaseModel):
-    name:  str = NOT_FOUND
+    name: str = NOT_FOUND
     score: str = NOT_FOUND
 
 
@@ -47,11 +38,11 @@ class Bowler(BaseModel):
 
 
 class ScoreResponse(BaseModel):
-    status:           str
-    title:            str
-    score:            str
-    current_batsmen:  List[Batsman]
-    current_bowler:   Bowler
+    status: str
+    title: str
+    score: str
+    current_batsmen: List[Batsman]
+    current_bowler: Bowler
 
 
 class MatchValidator(BaseModel):
@@ -77,15 +68,12 @@ class MatchValidator(BaseModel):
         return value
 
 
-# ─────────────────────────────────────────────
-# FastAPI App
-# ─────────────────────────────────────────────
 app = FastAPI(
     title="Score API",
     version="0.0.1",
     description="Live Cricket Score JSON API",
     docs_url=None,
-    redoc_url=None,
+    redoc_url=None
 )
 
 app.add_middleware(
@@ -97,9 +85,6 @@ app.add_middleware(
 )
 
 
-# ─────────────────────────────────────────────
-# Security Headers Middleware
-# ─────────────────────────────────────────────
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -108,16 +93,18 @@ async def security_headers(request: Request, call_next):
         "no-store, no-cache, must-revalidate, "
         "proxy-revalidate, max-age=0"
     )
-    response.headers["Pragma"]             = "no-cache"
-    response.headers["Expires"]            = "0"
-    response.headers["Surrogate-Control"]  = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["Surrogate-Control"] = "no-store"
 
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"]        = "DENY"
-    response.headers["Referrer-Policy"]        = "no-referrer"
-    response.headers["X-Robots-Tag"]           = "noindex, nofollow"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
 
-    response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000"
+    )
 
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -132,9 +119,6 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-# ─────────────────────────────────────────────
-# Score Service
-# ─────────────────────────────────────────────
 class ScoreService:
     HEADERS = {
         "User-Agent": (
@@ -145,12 +129,12 @@ class ScoreService:
             "Chrome/146.0.0.0 "
             "Safari/537.36"
         ),
-        "Referer":        "https://www.cricbuzz.com/",
-        "Origin":         "https://www.cricbuzz.com",
-        "Cache-Control":  "no-cache, no-store, max-age=0",
-        "Pragma":         "no-cache",
-        "Expires":        "0",
-        "Connection":     "close",
+        "Referer": "https://www.cricbuzz.com/",
+        "Origin": "https://www.cricbuzz.com",
+        "Cache-Control": "no-cache, no-store, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "Connection": "close",
         "Accept": (
             "text/html,"
             "application/xhtml+xml,"
@@ -162,10 +146,8 @@ class ScoreService:
 
     @staticmethod
     def clean(text: str) -> str:
-        """Clean and escape text — uses stdlib html module"""
         if not text:
             return NOT_FOUND
-        # FIX: 'html' yahan stdlib module hai, variable nahi
         return html.escape(" ".join(text.split()))
 
     @classmethod
@@ -199,9 +181,12 @@ class ScoreService:
 
             async with httpx.AsyncClient(
                 timeout=10.0,
-                follow_redirects=True,
+                follow_redirects=True
             ) as client:
-                response = await client.get(url, headers=cls.HEADERS)
+                response = await client.get(
+                    url,
+                    headers=cls.HEADERS
+                )
                 response.raise_for_status()
 
             soup = BeautifulSoup(response.text, "lxml")
@@ -213,18 +198,18 @@ class ScoreService:
                     soup.title.get_text(strip=True)
                     if soup.title
                     else NOT_FOUND,
-                    flags=re.IGNORECASE,
+                    flags=re.IGNORECASE
                 )
             )
 
-            og_tag   = soup.find("meta", property="og:title")
+            og_tag = soup.find("meta", property="og:title")
             og_title = og_tag.get("content", "") if og_tag else ""
 
             score = NOT_FOUND
 
             score_match = re.search(
                 r"([A-Z]{2,4})\s+(\d+)/(\d+)\s*\(([\d.]+)\)",
-                og_title,
+                og_title
             )
 
             if score_match:
@@ -235,19 +220,19 @@ class ScoreService:
 
             batsman_match = re.search(
                 r"\((.*?)\)\s*\|",
-                og_title,
+                og_title
             )
 
             if batsman_match:
                 players = re.findall(
                     r"([A-Za-z\s.'-]+)\s+(\d+\(\d+\))",
-                    batsman_match.group(1),
+                    batsman_match.group(1)
                 )
 
                 batsmen = [
                     Batsman(
                         name=cls.clean(name),
-                        score=cls.clean(score_value),
+                        score=cls.clean(score_value)
                     )
                     for name, score_value in players[:2]
                 ]
@@ -255,12 +240,14 @@ class ScoreService:
             if len(batsmen) < 2:
                 batsmen = cls.default_batsmen()
 
-            page_text = cls.clean(soup.get_text(" ", strip=True))
+            page_text = cls.clean(
+                soup.get_text(" ", strip=True)
+            )
 
             bowler_match = re.search(
                 r"Bowler.*?([A-Za-z.'\- ]+?)\s+\d+\s+\d+",
                 page_text,
-                re.IGNORECASE,
+                re.IGNORECASE
             )
 
             bowler_name = (
@@ -274,7 +261,7 @@ class ScoreService:
                 title=title,
                 score=score,
                 current_batsmen=batsmen,
-                current_bowler=Bowler(name=bowler_name),
+                current_bowler=Bowler(name=bowler_name)
             )
 
         except httpx.TimeoutException:
@@ -283,28 +270,102 @@ class ScoreService:
         except httpx.HTTPStatusError:
             raise APIError(404, "score data unavailable")
 
-        except APIError:
-            # APIError ko re-raise karo, generic Exception mein mat pakro
-            raise
-
         except Exception:
             raise APIError(500, "failed to process score data")
 
 
-# ─────────────────────────────────────────────
-# Routes
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────
+#  DEBUG ROUTE
+# ──────────────────────────────────────────────
+@app.get("/debug", include_in_schema=False)
+async def debug(score: str):
+    try:
+        MatchValidator(score=score)
+    except Exception:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "error",
+                "code": 422,
+                "message": "invalid score id"
+            }
+        )
+
+    url = f"https://www.cricbuzz.com/cricket-match-squads/{score}"
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=30,
+            follow_redirects=True
+        ) as client:
+            response = await client.get(
+                url,
+                headers={
+                    **ScoreService.HEADERS,
+                    "Accept": (
+                        "text/html,application/xhtml+xml,"
+                        "application/xml;q=0.9,*/*;q=0.8"
+                    ),
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Cache-Control": "max-age=0",
+                }
+            )
+
+        html_text = response.text
+
+        return JSONResponse(
+            content={
+                "status_code": response.status_code,
+                "url_fetched": str(response.url),
+                "html_length": len(html_text),
+                "contains_playing_xi": "Playing XI" in html_text,
+                "contains_babar": "Babar Azam" in html_text,
+                "contains_rizwan": "Mohammad Rizwan" in html_text,
+                "contains_squad": "squad" in html_text.lower(),
+                "contains_cloudflare": "cloudflare" in html_text.lower(),
+                "contains_captcha": "captcha" in html_text.lower(),
+                "first_500_chars": html_text[:500],
+                "response_headers": dict(response.headers),
+            }
+        )
+
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=408,
+            content={
+                "status": "error",
+                "code": 408,
+                "message": REQUEST_TIMEOUT
+            }
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "code": 500,
+                "message": str(e)
+            }
+        )
+
+
+# ──────────────────────────────────────────────
+#  DOCS ROUTE
+# ──────────────────────────────────────────────
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_docs():
     try:
-        # FIX: Variable naam 'swagger_html' rakha — 'html' stdlib module se conflict tha
-        swagger_html = get_swagger_ui_html(
+        html_page = get_swagger_ui_html(
             openapi_url=app.openapi_url,
             title="Live Cricket Score API Docs",
-            swagger_favicon_url="https://fastapi.tiangolo.com/img/favicon.png",
+            swagger_favicon_url="https://fastapi.tiangolo.com/img/favicon.png"
         )
 
-        content = swagger_html.body.decode("utf-8")
+        content = html_page.body.decode("utf-8")
 
         if "</head>" not in content:
             raise ValueError("Invalid Swagger HTML")
@@ -395,13 +456,16 @@ async def custom_swagger_docs():
         </style>
         """
 
-        content = content.replace("</head>", custom_style + "</head>")
+        content = content.replace(
+            "</head>",
+            custom_style + "</head>"
+        )
 
-        resp = HTMLResponse(content=content)
-        resp.headers["Cache-Control"]         = "no-store"
-        resp.headers["X-Content-Type-Options"] = "nosniff"
+        response = HTMLResponse(content=content)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
 
-        return resp
+        return response
 
     except Exception:
         return HTMLResponse(
@@ -416,14 +480,21 @@ async def custom_swagger_docs():
                 </body>
             </html>
             """,
-            status_code=500,
+            status_code=500
         )
 
 
+# ──────────────────────────────────────────────
+#  MAIN ROUTE
+# ──────────────────────────────────────────────
 @app.get("/", response_model=ScoreResponse)
 async def root(
-    score: Optional[str] = Query(None, min_length=4, max_length=20),
-    text:  bool          = Query(False),
+    score: Optional[str] = Query(
+        None,
+        min_length=4,
+        max_length=20
+    ),
+    text: bool = Query(False)
 ):
     if score is None:
         return ScoreResponse(
@@ -431,59 +502,58 @@ async def root(
             title="Live Score API",
             score=NOT_FOUND,
             current_batsmen=ScoreService.default_batsmen(),
-            current_bowler=Bowler(),
+            current_bowler=Bowler()
         )
 
-    # FIX: ValidationError properly pakda, sahi message return hota hai
     try:
         MatchValidator(score=score)
-    except ValidationError as exc:
-        first_error = exc.errors()[0]
-        message     = first_error.get("msg", INVALID_MATCH_ID)
-        # Pydantic "Value error, " prefix hata do
-        message = re.sub(r"^Value error,\s*", "", message)
+    except Exception:
         return JSONResponse(
             status_code=422,
             content={
-                "status":  "error",
-                "code":    422,
-                "message": message,
-            },
+                "status": "error",
+                "code": 422,
+                "message": "score id must be at least 4 digits"
+            }
         )
 
     result = await ScoreService.fetch_score(score)
 
     if text:
-        return PlainTextResponse(ScoreService.format_tree(result))
+        return PlainTextResponse(
+            ScoreService.format_tree(result)
+        )
 
     return result
 
 
-# ─────────────────────────────────────────────
-# Exception Handlers
-# ─────────────────────────────────────────────
+# ──────────────────────────────────────────────
+#  ERROR HANDLERS
+# ──────────────────────────────────────────────
 @app.exception_handler(APIError)
 async def api_error_handler(request: Request, exc: APIError):
-    # FIX: exc.message use kiya — pehle hardcoded wrong message tha
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "status":  "error",
-            "code":    exc.status_code,
-            "message": exc.message,
-        },
+            "status": "error",
+            "code": exc.status_code,
+            "message": exc.message
+        }
     )
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_error_handler(request: Request, exc: StarletteHTTPException):
+async def http_error_handler(
+    request: Request,
+    exc: StarletteHTTPException
+):
     return JSONResponse(
         status_code=exc.status_code,
         content={
-            "status":  "error",
-            "code":    exc.status_code,
-            "message": "invalid api route",
-        },
+            "status": "error",
+            "code": exc.status_code,
+            "message": "invalid api route"
+        }
     )
 
 
@@ -492,8 +562,8 @@ async def global_error_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={
-            "status":  "error",
-            "code":    500,
-            "message": "internal server error",
-        },
+            "status": "error",
+            "code": 500,
+            "message": "internal server error"
+        }
     )
